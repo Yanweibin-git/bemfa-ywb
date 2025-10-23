@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>巴法云 MQTT 温湿度 · 远程开灯</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"Noto Sans",sans-serif;text-align:center;background:#f4f6f9;margin-top:12vh}
+    h1{color:#333}
+    .card{background:#fff;border-radius:10px;padding:30px 40px;display:inline-block;box-shadow:0 4px 20px rgba(0,0,0,.08)}
+    .row{margin:18px 0;font-size:22px}
+    .val{font-weight:700;color:#007bff;margin-left:6px}
+    button{width:110px;height:42px;margin:8px;font-size:18px;border:none;border-radius:6px;cursor:pointer;color:#fff}
+    .on{background:#28a745}
+    .off{background:#dc3545}
+    #foot{margin-top:18px;font-size:14px;color:#888}
+  </style>
+</head>
+<body>
+  <h1>🌡️ 温湿度监控 · 远程开灯</h1>
+
+  <div class="card">
+    <div class="row">温度：<span id="T" class="val">--</span> ℃</div>
+    <div class="row">湿度：<span id="H" class="val">--</span> %</div>
+    <div class="row">灯状态：<span id="LED" class="val">未知</span></div>
+
+    <button class="on" onclick="sendLed('on')">开灯</button>
+    <button class="off" onclick="sendLed('off')">关灯</button>
+  </div>
+
+  <div id="foot">连接中…</div>
+
+<script>
+/* ============ 唯一需要改的地方 ============ */
+const UID = '687ff7251f52445299eb3aebca3e34de';   // ←←← 改成你的巴法云私钥
+/* ======================================== */
+
+const topics = { T004:'T', H004:'H', led002:'LED' };
+const ws = new WebSocket('wss://bemfa.com:9443/ws');
+
+function sub(t){
+  ws.send(JSON.stringify({uid:UID, topic:t, type:'sub'}));
+}
+function pub(t,msg){
+  ws.send(JSON.stringify({uid:UID, topic:t, type:'pub', msg:msg}));
+}
+
+ws.onopen = () => {
+  document.getElementById('foot').innerText = '已连接';
+  sub('T004'); sub('H004'); sub('led002');   // 订阅三个主题
+};
+
+ws.onmessage = (e) => {
+  const d = JSON.parse(e.data);
+  if(d.topic==='T004')  document.getElementById('T').innerText   = d.msg;
+  if(d.topic==='H004')  document.getElementById('H').innerText   = d.msg;
+  if(d.topic==='led002')document.getElementById('LED').innerText = d.msg;
+};
+
+ws.onclose  = () => document.getElementById('foot').innerText = '连接断开';
+ws.onerror  = () => document.getElementById('foot').innerText = '连接异常';
+
+function sendLed(sw){
+  pub('led002', sw);          // 向 led002 主题推送 on/off
+}
+</script>
+</body>
+</html>
